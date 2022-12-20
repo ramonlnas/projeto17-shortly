@@ -109,7 +109,7 @@ app.post("/signin", async (req, res) => {
 
     await connection.query(
       `INSERT INTO sessions (token, "userId") VALUES ($1, $2)`,
-      [(token, userExist.rows[0].id)]
+      [token, userExist.rows[0].id]
     );
 
     res.status(200).send(token);
