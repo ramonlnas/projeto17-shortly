@@ -172,7 +172,6 @@ app.get("/urls/:id", async (req, res) => {
     delete sendRightFormat.userId;
     delete sendRightFormat.visitCount;
     delete sendRightFormat.createdAt;
-    delete sendRightFormat.deletedAt;
 
     res.status(200).send(sendRightFormat);
   } catch (err) {
@@ -204,6 +203,33 @@ app.get("/urls/open/:shortUrl", async (req, res) => {
     res.sendStatus(500)
   }
 });
+
+app.delete("/urls/:id", async (req, res) => {
+  const { id } = req.params
+  const { authorization } = req.headers;
+
+  const token = authorization?.replace("Bearer ", "");
+
+  if (!token) {
+    return res.sendStatus(401);
+  }
+
+  const getLine = await connection.query(`SELECT * FROM urls WHERE id=$1`, [id])
+  const user = await connection.query(`SELECT * FROM sessions WHERE token=$1`, [token])
+  console.log(getLine.rows[0], user.rows[0])
+
+  if(user.rows[0].userId !== getLine.rows[0].userId) {
+    return res.sendStatus(401)
+  }
+
+  if(getLine.rows.length === 0) {
+    return res.sendStatus(404)
+  }
+
+  await connection.query(`DELETE FROM urls WHERE id=$1`, [id])
+  res.sendStatus(204)
+})
+
 
 const port = process.env.PORT || 4000;
 app.listen(port, () => console.log(`Server running in port ${port}`));
