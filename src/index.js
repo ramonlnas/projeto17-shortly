@@ -7,7 +7,6 @@ import bcrypt from "bcrypt";
 import { v4 as uuidV4 } from "uuid";
 import { nanoid } from "nanoid";
 
-
 dotenv.config();
 const app = express();
 app.use(cors());
@@ -26,9 +25,8 @@ const sessionSchema = joi.object({
 });
 
 const urlSchema = joi.object({
-  url: joi.string()
-  .uri().required()
-})
+  url: joi.string().uri().required(),
+});
 
 app.post("/signup", async (req, res) => {
   const { name, email, password, confirmPassword } = req.body;
@@ -74,7 +72,7 @@ app.post("/signup", async (req, res) => {
 app.post("/signin", async (req, res) => {
   const { email, password } = req.body;
   const token = uuidV4();
-  console.log(token)
+  console.log(token);
 
   const validateSignin = {
     email,
@@ -120,18 +118,18 @@ app.post("/signin", async (req, res) => {
 });
 
 app.post("/urls/shorten", async (req, res) => {
-  const {url} = req.body;
+  const { url } = req.body;
   const shortUrl = nanoid(8);
   const { authorization } = req.headers;
 
   const token = authorization?.replace("Bearer ", "");
 
-  // if (!token) {
-  //   return res.sendStatus(401)
-  // }
+  if (!token) {
+    return res.sendStatus(401);
+  }
 
   const validateURL = {
-    url
+    url,
   };
 
   const validation = urlSchema.validate(validateURL, {
@@ -143,11 +141,69 @@ app.post("/urls/shorten", async (req, res) => {
     return res.status(422).send(errors);
   }
 
-  await connection.query(`INSERT INTO urls (url, "shortUrl") VALUES ($1, $2)`, [url, shortUrl])
+  const getUser = await connection.query(
+    `SELECT "userId" FROM sessions WHERE token=$1`,
+    [token]
+  );
 
-  res.status(201).send(shortUrl)
+  await connection.query(
+    `INSERT INTO urls (url, "shortUrl", "userId") VALUES ($1, $2, $3)`,
+    [url, shortUrl, getUser.rows[0].userId]
+  );
+
+  res.status(201).send(shortUrl);
+});
+
+app.get("/urls/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const getUrlById = await connection.query(
+      `SELECT * FROM urls WHERE id=$1`,
+      [id]
+    );
+
+    if (getUrlById.rows.length === 0) {
+      return res.sendStatus(404);
+    }
+
+    const [sendRightFormat] = getUrlById.rows;
+
+    delete sendRightFormat.userId;
+    delete sendRightFormat.visitCount;
+    delete sendRightFormat.createdAt;
+    delete sendRightFormat.deletedAt;
+
+    res.status(200).send(sendRightFormat);
+  } catch (err) {
+    console.log(err);
+    res.sendStatus(500);
+  }
+});
+
+app.get("/urls/open/:shortUrl", async (req, res) => {
+  const { shortUrl } = req.params;
+
+  try {
+    if(shortUrl.length === 8) {
+      const getShort = await connection.query(`SELECT * FROM urls WHERE "shortUrl"=$1`, [shortUrl])
+      console.log(getShort.rows, getShort.rows[0].userId)
   
-})
+      if(getShort.rows.length === 0) {
+        res.sendStatus(404)
+      }
+  
+      await connection.query(`UPDATE urls SET "visitCount" = "visitCount" + 1 WHERE "shortUrl"=$1`, [shortUrl])
+      await connection.query(`UPDATE users SET "visitCount" = "visitCount" + 1 WHERE id=$1`, [getShort.rows[0].userId])
+  
+      res.redirect(getShort.rows.url)
+    }
+
+  } catch (err) {
+    console.log(err)
+    res.sendStatus(500)
+  }
+});
 
 const port = process.env.PORT || 4000;
 app.listen(port, () => console.log(`Server running in port ${port}`));
