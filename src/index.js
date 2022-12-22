@@ -184,28 +184,36 @@ app.get("/urls/open/:shortUrl", async (req, res) => {
   const { shortUrl } = req.params;
 
   try {
-    if(shortUrl.length === 8) {
-      const getShort = await connection.query(`SELECT * FROM urls WHERE "shortUrl"=$1`, [shortUrl])
-      console.log(getShort.rows, getShort.rows[0].userId)
-  
-      if(getShort.rows.length === 0) {
-        res.sendStatus(404)
-      }
-  
-      await connection.query(`UPDATE urls SET "visitCount" = "visitCount" + 1 WHERE "shortUrl"=$1`, [shortUrl])
-      await connection.query(`UPDATE users SET "visitCount" = "visitCount" + 1 WHERE id=$1`, [getShort.rows[0].userId])
-  
-      res.redirect(getShort.rows.url)
-    }
+    if (shortUrl.length === 8) {
+      const getShort = await connection.query(
+        `SELECT * FROM urls WHERE "shortUrl"=$1`,
+        [shortUrl]
+      );
+      console.log(getShort.rows, getShort.rows[0].userId);
 
+      if (getShort.rows.length === 0) {
+        res.sendStatus(404);
+      }
+
+      await connection.query(
+        `UPDATE urls SET "visitCount" = "visitCount" + 1 WHERE "shortUrl"=$1`,
+        [shortUrl]
+      );
+      await connection.query(
+        `UPDATE users SET "visitCount" = "visitCount" + 1 WHERE id=$1`,
+        [getShort.rows[0].userId]
+      );
+
+      res.redirect(getShort.rows.url);
+    }
   } catch (err) {
-    console.log(err)
-    res.sendStatus(500)
+    console.log(err);
+    res.sendStatus(500);
   }
 });
 
 app.delete("/urls/:id", async (req, res) => {
-  const { id } = req.params
+  const { id } = req.params;
   const { authorization } = req.headers;
 
   const token = authorization?.replace("Bearer ", "");
@@ -214,22 +222,72 @@ app.delete("/urls/:id", async (req, res) => {
     return res.sendStatus(401);
   }
 
-  const getLine = await connection.query(`SELECT * FROM urls WHERE id=$1`, [id])
-  const user = await connection.query(`SELECT * FROM sessions WHERE token=$1`, [token])
-  console.log(getLine.rows[0], user.rows[0])
+  const getLine = await connection.query(`SELECT * FROM urls WHERE id=$1`, [
+    id,
+  ]);
+  const user = await connection.query(`SELECT * FROM sessions WHERE token=$1`, [
+    token,
+  ]);
+  console.log(getLine.rows[0], user.rows[0]);
 
-  if(user.rows[0].userId !== getLine.rows[0].userId) {
-    return res.sendStatus(401)
+  if (user.rows[0].userId !== getLine.rows[0].userId) {
+    return res.sendStatus(401);
   }
 
-  if(getLine.rows.length === 0) {
-    return res.sendStatus(404)
+  if (getLine.rows.length === 0) {
+    return res.sendStatus(404);
   }
 
-  await connection.query(`DELETE FROM urls WHERE id=$1`, [id])
-  res.sendStatus(204)
-})
+  await connection.query(`DELETE FROM urls WHERE id=$1`, [id]);
+  res.sendStatus(204);
+});
 
+app.get("/users/me", async (req, res) => {
+  const { authorization } = req.headers;
+
+  const token = authorization?.replace("Bearer ", "");
+
+  if (!token) {
+    return res.sendStatus(401);
+  }
+
+  try {
+    const isUser = await connection.query(
+      `SELECT * FROM sessions WHERE token=$1`,
+      [token]
+    );
+    
+    const getUser = await connection.query(
+      `SELECT users.id AS "idUser", users.name AS "name", users."visitCount" AS "userVisitCount", urls.id AS "urlId", urls."shortUrl" AS "shortUrl", urls.url AS "url", urls."visitCount" AS "visitCount" FROM users 
+     LEFT JOIN urls 
+    ON users.id = urls."userId"
+    WHERE users.id=$1
+    `,
+      [isUser.rows[0].userId]
+    );
+    console.log(getUser.rows, isUser.rows[0].userId);
+
+    const sendRightFormat = getUser.rows.map((el) => {
+      return {
+        id: el.idUser,
+        name: el.name,
+        visitCount: el.userVisitCount,
+        shortenedUrls: [
+          {
+            id: el.urlId,
+            shortUrl: el.shortUrl,
+            visitCount: el.visitCount,
+          },
+        ],
+      };
+    });
+
+    res.status(200).send(sendRightFormat);
+  } catch (err) {
+    console.log(err);
+    res.sendStatus(500);
+  }
+});
 
 const port = process.env.PORT || 4000;
 app.listen(port, () => console.log(`Server running in port ${port}`));
