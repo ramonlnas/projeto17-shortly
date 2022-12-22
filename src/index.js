@@ -189,10 +189,10 @@ app.get("/urls/open/:shortUrl", async (req, res) => {
         `SELECT * FROM urls WHERE "shortUrl"=$1`,
         [shortUrl]
       );
-      console.log(getShort.rows, getShort.rows[0].userId);
+      console.log(getShort.rows[0], getShort.rows[0].userId);
 
       if (getShort.rows.length === 0) {
-        res.sendStatus(404);
+        return res.sendStatus(404);
       }
 
       await connection.query(
