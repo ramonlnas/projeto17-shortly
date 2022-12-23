@@ -5,15 +5,12 @@ export async function postShorten(req, res) {
   const { url } = res.locals.url;
   const shortUrl = nanoid(8);
   const token  = res.locals.token;
-  console.log(token, "tokenCOntroller")
-  console.log(url, "urlController")
 
   try {
     const getUser = await connection.query(
       `SELECT "userId" FROM sessions WHERE token=$1`,
       [token]
     );
-    console.log(getUser.rows[0])
 
     await connection.query(
       `INSERT INTO urls (url, "shortUrl", "userId") VALUES ($1, $2, $3)`,
@@ -62,7 +59,6 @@ export async function getOpenUrl(req, res) {
         `SELECT * FROM urls WHERE "shortUrl"=$1`,
         [shortUrl]
       );
-      console.log(getShort.rows[0], getShort.rows[0].userId);
 
       if (getShort.rows.length === 0) {
         return res.sendStatus(404);
@@ -95,7 +91,6 @@ export async function deletUrlById(req, res) {
   const user = await connection.query(`SELECT * FROM sessions WHERE token=$1`, [
     token,
   ]);
-  console.log(getLine.rows[0], user.rows[0]);
 
   // if (user.rows[0].userId !== getLine.rows[0].userId) {
   //   return res.sendStatus(401);

@@ -15,6 +15,5 @@ app.use(authRouters)
 app.use(urlsRouters)
 app.use(usersRouters)
 
-
 const port = process.env.PORT || 4000;
 app.listen(port, () => console.log(`Server running in port ${port}`));

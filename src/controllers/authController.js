@@ -29,7 +29,6 @@ export async function signIn(req, res) {
       `SELECT * FROM users WHERE email=$1`,
       [email]
     );
-    // console.log(userExist.rows[0], userExist.rows[0].id);
 
     const passwordOK = bcrypt.compareSync(password, userExist.rows[0].password);
 
